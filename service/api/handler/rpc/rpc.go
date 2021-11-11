@@ -45,6 +45,7 @@ var (
 		"application/grpc+json",
 		"application/json",
 		"application/json-rpc",
+		"multipart/form-data",
 	}
 
 	// support proto codecs
