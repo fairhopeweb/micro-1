@@ -387,7 +387,7 @@ func (g *grpcServer) processRequest(stream grpc.ServerStream, service *service, 
 			argIsValue = true
 		}
 
-		if defaultGRPCCodecs[ct].Name() != "json" {
+		if defaultGRPCCodecs[ct].Name() != "multipart" {
 			if err := stream.RecvMsg(argv.Interface()); err != nil {
 				return err
 			}

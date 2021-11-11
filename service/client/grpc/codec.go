@@ -35,6 +35,7 @@ import (
 type jsonCodec struct{}
 type protoCodec struct{}
 type bytesCodec struct{}
+type multipartCodec struct{}
 type wrapCodec struct{ encoding.Codec }
 
 var jsonpbMarshaler = &jsonpb.Marshaler{
@@ -55,7 +56,7 @@ var (
 		"application/grpc+json":    jsonCodec{},
 		"application/grpc+proto":   protoCodec{},
 		"application/grpc+bytes":   bytesCodec{},
-		"multipart/form-data":      jsonCodec{},
+		"multipart/form-data":      multipartCodec{},
 	}
 )
 
@@ -222,4 +223,44 @@ func (g *grpcCodec) Close() error {
 
 func (g *grpcCodec) String() string {
 	return g.c.Name()
+}
+
+func (multipartCodec) Marshal(v interface{}) ([]byte, error) {
+	if b, ok := v.(*bytes.Frame); ok {
+		return b.Data, nil
+	}
+
+	if pb, ok := v.(proto.Message); ok {
+		buf := bufferPool.Get()
+		defer bufferPool.Put(buf)
+		if err := jsonpbMarshaler.Marshal(buf, pb); err != nil {
+			return nil, err
+		}
+		return buf.Bytes(), nil
+	}
+
+	return json.Marshal(v)
+}
+
+func (multipartCodec) Unmarshal(data []byte, v interface{}) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if b, ok := v.(*bytes.Frame); ok {
+		b.Data = data
+		return nil
+	}
+	if pb, ok := v.(proto.Message); ok {
+		return jsonpb.Unmarshal(b.NewReader(data), pb)
+	}
+
+	dec := json.NewDecoder(b.NewReader(data))
+	if useNumber {
+		dec.UseNumber()
+	}
+	return dec.Decode(v)
+}
+
+func (multipartCodec) Name() string {
+	return "multipart"
 }
